@@ -2,8 +2,9 @@
 
 An open-source learning project exploring system one decision models in Rust.
 The aim is to understand transformers by implementing small examples, then
-training, adapting and serving models locally. The first interactive visual
-prototype is implemented in JavaScript; the Rust model is not implemented yet.
+training, adapting and serving models locally. The interactive visual
+prototype is implemented in JavaScript. The Rust implementation has started
+with one inspectable self-attention head; the full model is still to come.
 
 ## What we want to learn
 
@@ -23,6 +24,18 @@ prototype is implemented in JavaScript; the Rust model is not implemented yet.
 published architecture called Decision Transformer has been selected. Jev is a
 source of curiosity and public research leads, not a claim to reproduce its
 private training method or use its weights.
+
+## Model and application
+
+Kev is intended to be a general transformer-based typed decision model. A task
+will supply context, a question and an allowed answer shape. Graph-building
+will be its first training application; graph categories and relationship
+names belong in task data rather than being hard-coded output labels.
+
+The harness will retrieve candidates, sequence dependent decisions, batch
+independent decisions and validate proposed graph changes. A general model
+architecture does not itself supply general decision-making competence: that
+requires training and evaluation across the tasks we want it to handle.
 
 ## A live understanding map
 
@@ -61,14 +74,30 @@ experiment; do not treat a working demo as proof that the learner understands it
 
 ## Running
 
-Start with [001 — Visual network](experiments/001-visual-network/README.md):
+The first Rust slice uses the standard library only. From this directory, with
+Rust 1.85 or newer (tested with 1.99.0):
+
+```sh
+cargo run --offline --example attention
+cargo run --offline --example attention -- --uniform
+cargo test --offline
+```
+
+Read [the first Rust walkthrough](walkthroughs/001-rust-attention.md) beside
+[src/attention.rs](src/attention.rs). It follows queries, keys, values, scores,
+attention weights and outputs. Inputs and weights are hand-set. This slice
+has no text encoder, complete transformer, typed output head or training loop.
+
+For the browser, start with [001 — Visual network](experiments/001-visual-network/README.md):
 a small attention-based classifier with editable inputs, two heads, typed choices
 and a real training step on the final layer. Run instructions are in that folder.
 
 ## Progress
 
 - Initial direction captured on 13 October 2026.
-- Interactive visual prototype added on 14 October 2026, before the Rust model.
+- Interactive visual prototype added on 14 October 2026.
+- Rust self-attention core and terminal trace example added as the next slice.
+- Dataset creation and wiring Rust traces into the visual are subsequent steps.
 - Actual numerical calculations, with animation timing labelled illustrative.
 - No pretrained model, whole-network training, benchmark, calibration or
   integration with voyagershell claimed.
