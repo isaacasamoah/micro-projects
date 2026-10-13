@@ -1,5 +1,7 @@
 use std::{array, error::Error, fmt};
 
+use crate::math::{project, softmax};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttentionError {
     EmptySequence,
@@ -18,33 +20,6 @@ impl fmt::Display for AttentionError {
 }
 
 impl Error for AttentionError {}
-
-/// Weight rows are input features; columns are output features.
-pub fn project<const INPUT: usize, const OUTPUT: usize>(
-    input: &[f64; INPUT],
-    weights: &[[f64; OUTPUT]; INPUT],
-) -> [f64; OUTPUT] {
-    array::from_fn(|column| {
-        input
-            .iter()
-            .zip(weights)
-            .map(|(x, row)| x * row[column])
-            .sum()
-    })
-}
-
-pub fn softmax(scores: &[f64]) -> Result<Vec<f64>, AttentionError> {
-    if scores.is_empty() {
-        return Err(AttentionError::EmptySequence);
-    }
-    if scores.iter().any(|x| !x.is_finite()) {
-        return Err(AttentionError::NonFinite);
-    }
-    let maximum = scores.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let exponentials: Vec<_> = scores.iter().map(|score| (score - maximum).exp()).collect();
-    let total: f64 = exponentials.iter().sum();
-    Ok(exponentials.iter().map(|x| x / total).collect())
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AttentionHead<const INPUT: usize, const KEY: usize, const VALUE: usize> {

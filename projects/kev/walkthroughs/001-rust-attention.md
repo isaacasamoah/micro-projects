@@ -6,7 +6,7 @@ Before, Kev's runnable network lived in the JavaScript visual experiment. Its tw
 
 Now Kev also has a small Rust library and a runnable terminal example. Every input vector produces its own query, key and value through shared projection matrices. Each query attends across the whole sequence. The function returns the actual queries, keys, values, scaled scores, attention weights and output vectors.
 
-This is one self-attention building block, not yet the complete transformer or typed decision model. The browser still runs its existing JavaScript example. No backend connection or dataset has been added.
+This is one self-attention building block, not yet the complete transformer or typed decision model. The browser now runs this same library through WebAssembly; see [the next walkthrough](002-rust-browser.md). Dataset creation is still to come.
 
 ## Where the computation lives
 
@@ -16,7 +16,7 @@ The library contains no route labels, graph categories or graph-specific rules. 
 
 ## Pseudocode beside the code
 
-Read [attention.rs](../src/attention.rs) in order. These expressions come from the implementation; the full functions include shape types, finite-number checks and trace construction.
+Read [attention.rs](../src/attention.rs) and its private helpers in [math.rs](../src/math.rs) in order. These expressions come from the implementation; the full functions include shape types, finite-number checks and trace construction.
 
 | What happens | Rust expression |
 | --- | --- |
@@ -63,7 +63,7 @@ This zeros the query matrix. Every score becomes zero, each attention weight bec
 
 **Judgment: agree for this first learning slice.** Explicit CPU arithmetic and small dimensions make the computation inspectable. No tensor framework, accelerator, model download or runtime dependency hides the operations.
 
-The trace is returned by the same function that performs the calculation. A later visualization can read those values directly. Today there is no serialization protocol, server or browser integration; defining those before we understand the numerical component would add another problem to this slice.
+The trace is returned by the same function that performs the calculation. The TypeScript visualization reads those values through the optional WebAssembly adapter. The core itself has no server or DOM dependencies.
 
 This implements unmasked attention: every input can attend to every other input. There is no positional encoding yet, so reordering inputs simply reorders the corresponding outputs. It does not understand word order or text. Multi-head composition, residuals, normalization, feed-forward layers, input encoding, typed decision heads and training are still to come.
 
@@ -83,7 +83,7 @@ On Rust 1.99.0, seven numerical/boundary tests and one compile-fail documentatio
 
 The checks include a hand-computed two-token answer, zero-query mean values, one-token behavior, softmax shift invariance, a non-square projection, permutation behavior, unchanged parameters during inference, and invalid input rejection. The compile-fail case checks that incompatible input widths are rejected by Rust.
 
-These checks establish the calculations and terminal example. They do not establish learned ability, calibration, speed, GPU behavior or browser integration.
+These original checks establish the calculations and terminal example. Browser checks are recorded in the next walkthrough. Neither establishes learned ability, calibration, speed or GPU behavior.
 
 ## Questions to walk through together
 

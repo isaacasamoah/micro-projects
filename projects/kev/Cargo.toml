@@ -5,4 +5,11 @@ edition = "2024"
 rust-version = "1.85"
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+browser = ["dep:wasm-bindgen"]
+
 [dependencies]
+wasm-bindgen = { version = "=0.2.129", optional = true }

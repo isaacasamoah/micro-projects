@@ -8,7 +8,7 @@ from each other.
 
 | Project | Question | Status |
 | --- | --- | --- |
-| [Kev](projects/kev/) | How do we build, train and understand a small calibrated decision model? | Interactive network visual and Rust self-attention core; full model in progress |
+| [Kev](projects/kev/) | How do we build, train and understand a small calibrated decision model? | Interactive TypeScript graph of Rust self-attention via WebAssembly; full model in progress |
 | [Little robot lab](projects/robot-playground/) | Can a tiny visual robot world provide useful action/outcome traces? | Environment and recording prototype; no model trained |
 
 Each project is self-contained: its code, dependencies, run instructions and

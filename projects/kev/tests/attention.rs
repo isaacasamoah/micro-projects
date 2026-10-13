@@ -1,4 +1,4 @@
-use kev::attention::{AttentionError, AttentionHead, project, softmax};
+use kev::attention::{AttentionError, AttentionHead};
 
 fn close(actual: f64, expected: f64) {
     assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
@@ -10,26 +10,6 @@ fn head() -> AttentionHead<2, 2, 3> {
         key_weights: [[1.0, 0.0], [0.0, 1.0]],
         value_weights: [[1.0, 0.0, 1.0], [0.0, 1.0, -1.0]],
     }
-}
-
-#[test]
-fn projection_uses_weight_columns_for_output_features() {
-    assert_eq!(
-        project(&[2.0, 3.0, -1.0], &[[1.0, 2.0], [4.0, -1.0], [2.0, 5.0]]),
-        [12.0, -4.0]
-    );
-}
-
-#[test]
-fn softmax_is_stable_and_invariant_to_a_shared_offset() {
-    let probabilities = softmax(&[1000.0, 1001.0, 999.0]).unwrap();
-    let shifted = softmax(&[0.0, 1.0, -1.0]).unwrap();
-    close(probabilities.iter().sum(), 1.0);
-    for (a, b) in probabilities.iter().zip(shifted) {
-        close(*a, b);
-    }
-    assert!(probabilities[1] > probabilities[0]);
-    assert!(probabilities[0] > probabilities[2]);
 }
 
 #[test]
@@ -103,8 +83,6 @@ fn empty_or_non_finite_inputs_and_overflow_are_rejected() {
         head().forward(&[[f64::MAX, 1.0]]),
         Err(AttentionError::NonFinite)
     );
-    assert_eq!(softmax(&[]), Err(AttentionError::EmptySequence));
-    assert_eq!(softmax(&[f64::INFINITY]), Err(AttentionError::NonFinite));
     let empty: AttentionHead<2, 0, 1> = AttentionHead {
         query_weights: [[], []],
         key_weights: [[], []],

@@ -1,12 +1,8 @@
-use kev::attention::AttentionHead;
+use kev::example;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let inputs = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-    let mut head = AttentionHead {
-        query_weights: [[1.0, 0.0], [0.0, 1.0]],
-        key_weights: [[1.0, 0.0], [0.0, 1.0]],
-        value_weights: [[1.0, 0.0, 1.0], [0.0, 1.0, -1.0]],
-    };
+    let inputs = example::INPUTS;
+    let mut head = example::head();
     let arguments: Vec<_> = std::env::args().skip(1).collect();
     match arguments.as_slice() {
         [] => {}

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Kev · Rust to the graph</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: dark;
+        font: 16px/1.7 system-ui;
+        background: #0d131c;
+        color: #dde9ef;
+      }
+      body {
+        max-width: 1200px;
+        margin: 45px auto;
+        padding: 0 24px;
+      }
+      h1,
+      h2 {
+        color: #81e2be;
+      }
+      a {
+        color: #86b9ff;
+      }
+      section {
+        margin: 40px 0;
+      }
+      pre {
+        overflow: auto;
+        background: #192331;
+        padding: 20px;
+        border-radius: 12px;
+        font:
+          13px/1.7 ui-monospace,
+          monospace;
+        max-height: 650px;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1.6fr;
+        gap: 25px;
+      }
+      code {
+        color: #f2bc77;
+      }
+      p,
+      li {
+        max-width: 80ch;
+      }
+      @media (max-width: 800px) {
+        .pair {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a href="index.html">← Back to the graph</a>
+    <h1>One computation, two ways to see it.</h1>
+    <p>
+      The Rust library runs in the terminal and, compiled to WebAssembly, in
+      your browser. TypeScript reads its trace and draws the graph. The moving
+      dots are a slow explanation of those values, not measured execution
+      timing.
+    </p>
+    <section>
+      <h2>Before → after</h2>
+      <p>
+        The previous browser demo pooled three routes using two fixed queries,
+        then trained a JavaScript decision layer. The browser now runs Rust
+        self-attention: every token produces its own query, key and value. Those
+        are three querying tokens in <strong>one head</strong>. There is no
+        decision head or training in this slice.
+      </p>
+    </section>
+    <section>
+      <h2>1. What lib.rs makes available</h2>
+      <div class="pair">
+        <div>
+          <p>
+            The public attention module holds the reusable model and its trace.
+            The example module supplies synthetic inputs and parameters.
+            Numerical helpers stay private. The browser adapter is compiled only
+            when requested.
+          </p>
+          <p>
+            These module declarations organize code; they do not execute
+            inference.
+          </p>
+        </div>
+        <div><!-- source:lib --></div>
+      </div>
+    </section>
+    <section>
+      <h2>2. Follow attention.rs</h2>
+      <div class="pair">
+        <div>
+          <ol>
+            <li>Check the input and parameter values.</li>
+            <li>Project each token through the same Wq, Wk and Wv matrices.</li>
+            <li>
+              For every query, compare against every key using a dot product.
+            </li>
+            <li>Divide scores by the square root of key width.</li>
+            <li>Apply softmax to each row.</li>
+            <li>Use each row to blend the value vectors.</li>
+            <li>Return every intermediate value with the outputs.</li>
+          </ol>
+          <p>
+            <code>&amp;self</code> borrows the head; forward inference leaves
+            its weights unchanged. <code>Result</code> passes a failure back to
+            the caller.
+          </p>
+          <p>
+            <strong>Try it:</strong> follow query 0, then query 1. Each has a
+            different distribution even though they use identical projection
+            matrices.
+          </p>
+        </div>
+        <div><!-- source:attention --></div>
+      </div>
+    </section>
+    <section>
+      <h2>3. The small numerical operations</h2>
+      <div class="pair">
+        <div>
+          <p>
+            <strong>Projection:</strong> for each output coordinate, sum input
+            coordinate × matching matrix weight.
+          </p>
+          <p>
+            <strong>Softmax:</strong> subtract the largest score, exponentiate,
+            then divide by the total. The subtraction avoids overflow without
+            changing the distribution.
+          </p>
+          <p>
+            <strong>Try it:</strong> set all four Wq cells to zero. Every
+            attention weight becomes one third. All three outputs become the
+            mean of the value vectors. This is a manual edit, not training.
+          </p>
+        </div>
+        <div><!-- source:math --></div>
+      </div>
+    </section>
+    <section>
+      <h2>4. Across the browser boundary</h2>
+      <div class="pair">
+        <div>
+          <p>
+            JavaScript typed arrays arrive as flat rows. The adapter checks
+            their sizes and builds Rust arrays. The same
+            <code>AttentionHead::forward</code> function runs. Its trace is
+            exported as typed arrays.
+          </p>
+          <p>
+            The binding tool generates TypeScript declarations from this
+            adapter. The frontend copies the returned arrays and frees the Rust
+            trace object. It contains no second implementation of attention.
+          </p>
+        </div>
+        <div><!-- source:browser --></div>
+      </div>
+    </section>
+    <section>
+      <h2>Why this approach?</h2>
+      <p>
+        This small local CPU model does not need a server to be shared visually.
+        WebAssembly lets the model remain Rust while the browser owns
+        interaction. A future GPU runtime or hosted API would be a separate
+        deployment choice.
+      </p>
+      <p>
+        Official sources guided module privacy, borrowing, recoverable errors,
+        strict TypeScript, narrowing and browser ES modules. Choosing this
+        runtime and graph layout is our project decision.
+      </p>
+      <ul>
+        <li>
+          <a
+            href="https://doc.rust-lang.org/book/ch07-02-defining-modules-to-control-scope-and-privacy.html"
+            >Rust modules and privacy</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html"
+            >Rust borrowing</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html"
+            >Rust Result</a
+          >
+        </li>
+        <li>
+          <a href="https://www.typescriptlang.org/docs/handbook/intro.html"
+            >TypeScript Handbook</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html"
+            >TypeScript narrowing</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://www.typescriptlang.org/docs/handbook/modules/guides/choosing-compiler-options.html"
+            >Compiler options for the runtime</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://wasm-bindgen.github.io/wasm-bindgen/examples/without-a-bundler.html"
+            >WebAssembly without a bundler</a
+          >
+        </li>
+      </ul>
+    </section>
+    <section>
+      <h2>What to understand before the next slice</h2>
+      <p>
+        Attention weights sum to one; output coordinates do not have to. Keys
+        determine comparisons; values supply what gets mixed. There are no
+        positions, causal mask, multi-head composition, residuals,
+        normalization, feed-forward block, typed decision head, dataset or
+        backpropagation yet.
+      </p>
+      <p>
+        The graph is evidence of a forward calculation, not learned competence.
+        We will add real training and its gradients when the Rust model supports
+        them.
+      </p>
+      <p>
+        <a
+          href="https://github.com/isaacasamoah/micro-projects/tree/experiment/micro-projects/projects/kev"
+          >Open the source on GitHub ↗</a
+        >
+      </p>
+    </section>
+  </body>
+</html>

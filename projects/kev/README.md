@@ -2,9 +2,9 @@
 
 An open-source learning project exploring system one decision models in Rust.
 The aim is to understand transformers by implementing small examples, then
-training, adapting and serving models locally. The interactive visual
-prototype is implemented in JavaScript. The Rust implementation has started
-with one inspectable self-attention head; the full model is still to come.
+training, adapting and serving models locally. The current implementation is one inspectable Rust self-attention head.
+It runs natively or in the browser through WebAssembly, with a TypeScript
+interactive diagram. The full model is still to come.
 
 ## What we want to learn
 
@@ -63,7 +63,7 @@ baseline can do, then compare other objectives and training methods.
 One small, understandable change at a time:
 
 1. Name the question and show the proposed computation or behavior.
-2. Implement that slice in its own branch/worktree and check it.
+2. Implement that slice on a working branch in the canonical checkout and check it.
 3. Commit and push it so the code is readable on GitHub.
 4. Walk through before/after, pseudocode beside actual code, how it works,
    why this approach, what was proved and what remains uncertain.
@@ -74,30 +74,49 @@ experiment; do not treat a working demo as proof that the learner understands it
 
 ## Running
 
-The first Rust slice uses the standard library only. From this directory, with
-Rust 1.85 or newer (tested with 1.99.0):
+The model is a Rust library, not an HTTP service. The terminal example and the
+browser call the same forward function. This slice has no text encoder, complete
+transformer, typed output head, dataset or training loop.
+
+With Rust 1.85 or newer (tested with 1.99.0), from this directory:
 
 ```sh
-cargo run --offline --example attention
-cargo run --offline --example attention -- --uniform
-cargo test --offline
+cargo run --locked --example attention
+cargo run --locked --example attention -- --uniform
+cargo test --locked
 ```
 
-Read [the first Rust walkthrough](walkthroughs/001-rust-attention.md) beside
-[src/attention.rs](src/attention.rs). It follows queries, keys, values, scores,
-attention weights and outputs. Inputs and weights are hand-set. This slice
-has no text encoder, complete transformer, typed output head or training loop.
+The native model has no runtime dependencies. The optional browser build adds
+wasm-bindgen. See [web/README.md](web/README.md) for setup, build and serving.
+The browser remains local: no account, API key or hosted model is needed.
 
-For the browser, start with [001 — Visual network](experiments/001-visual-network/README.md):
-a small attention-based classifier with editable inputs, two heads, typed choices
-and a real training step on the final layer. Run instructions are in that folder.
+## Code and walkthroughs
+
+| File | Responsibility |
+| --- | --- |
+| [src/lib.rs](src/lib.rs) | Module boundary and optional browser feature |
+| [src/attention.rs](src/attention.rs) | Self-attention head, trace and errors |
+| [src/math.rs](src/math.rs) | Private projection and softmax helpers |
+| [src/example.rs](src/example.rs) | Shared synthetic example |
+| [src/browser.rs](src/browser.rs) | Typed WebAssembly boundary |
+| [web/src/model.ts](web/src/model.ts) | Read and release Rust traces |
+| [web/src/graph.ts](web/src/graph.ts) | SVG representation of those traces |
+| [web/src/app.ts](web/src/app.ts) | Interaction and illustrative playback |
+
+Start with the [Rust attention walkthrough](walkthroughs/001-rust-attention.md),
+then [Rust in the browser and official patterns](walkthroughs/002-rust-browser.md).
+The web app's **Code walkthrough** opens pseudocode beside the actual Rust source,
+embedded at build time.
+
+The earlier standalone JavaScript classifier has been replaced. Git history
+preserves that experiment; there is now one attention implementation.
 
 ## Progress
 
 - Initial direction captured on 13 October 2026.
-- Interactive visual prototype added on 14 October 2026.
-- Rust self-attention core and terminal trace example added as the next slice.
-- Dataset creation and wiring Rust traces into the visual are subsequent steps.
-- Actual numerical calculations, with animation timing labelled illustrative.
-- No pretrained model, whole-network training, benchmark, calibration or
-  integration with voyagershell claimed.
+- First interactive prototype and Rust attention slice added on 14 October 2026.
+- Browser now displays the Rust self-attention trace, including all query rows.
+- Inputs and matrices can be edited; inference does not learn from those edits.
+- Training, typed decisions and dataset creation remain subsequent slices.
+- No pretrained model, benchmark, calibration, GPU performance or integration
+  with voyagershell claimed.
