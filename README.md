@@ -8,6 +8,7 @@ from each other.
 
 | Project | Question | Status |
 | --- | --- | --- |
+| [Little robot lab](projects/robot-playground/) | Can a tiny visual robot world provide useful action/outcome traces? | Environment and recording prototype; no model trained |
 | [Kev](projects/kev/) | How do we build, train and understand a small calibrated decision model? | Planning; no model implemented yet |
 
 Each project is self-contained: its code, dependencies, run instructions and
