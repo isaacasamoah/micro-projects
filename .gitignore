@@ -1,0 +1,19 @@
+# Local credentials and machine configuration
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Generated dependencies and builds
+node_modules/
+target/
+.venv/
+__pycache__/
+*.pyc
+
+# Private or large experiment artifacts
+**/private-traces/
+**/checkpoints/
+**/datasets/
+*.safetensors
+*.gguf
