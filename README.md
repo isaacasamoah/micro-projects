@@ -14,10 +14,6 @@ Each project is self-contained: its code, dependencies, run instructions and
 learning notes live in its folder. There is no repository-wide build system.
 Use the [project README template](templates/README.md) when adding an experiment.
 
-The daily aim is one hour reading and one hour building, each including
-15–20 minutes for sharing. A useful result might be a few sentences, a visual,
-or a demo. Larger questions can take several small sessions.
-
 ## Related projects
 
 - [voyagershell app](https://github.com/isaacasamoah/voyagershellapp): native agent orchestration and collaboration experiments.
