@@ -2,13 +2,26 @@
 
 ## Before → after
 
-Before, Kev described the learning direction but had no runnable example. Now there is an interactive browser network with visible intermediate numbers and a small training operation. Rust implementation follows after we agree on the concepts and visual.
+Before, the first visual spread the diagram, controls, values and code across a long page. Now the graph is the whole working surface: inputs and queries are edited inside nodes, connections expose their own weights, and output nodes choose the training target. The six concatenated values are six visible nodes. Pseudocode and code remain available on a separate page. The numerical model is unchanged; Rust implementation follows after we agree on the concepts and visual.
 
 ## The path through the code
 
-`index.html` → `app.mjs` → `forward` in `model.mjs` → attention, hidden layer and decision → SVG and value tables.
+`index.html` → `app.mjs` → `forward` in `model.mjs` → attention, hidden layer and decision → SVG node values and connection strengths.
 
-The training button calls `trainOutput`, replaces the output parameters, then recomputes the forward pass. The code panel uses each imported function's own source, so the displayed implementation stays tied to what runs.
+The training button computes a proposed update using `trainOutput`, then replays the forward pass, loss and gradients. Only the last playback stage installs the new parameters and recomputes the prediction. Stop, reset or a manual edit cancels any unapplied update. The separate `walkthrough.mjs` uses each imported function's own source, so the displayed implementation stays tied to what runs.
+
+```text
+Node or pathway interaction → edit that input, query, target or parameter
+  → cancel any unfinished playback → recompute → redraw graph values
+
+Play inference → animate the forward stages → leave parameters alone
+Play training → compute the proposed update without mutating the model
+  → animate forward, loss and backward flow → apply once → predict again
+```
+
+Read `node`, `edge`, `inspect`, `update` and `play` in [app.mjs](app.mjs). Each graph element owns a description and a function that reads its current numerical details. There is one numerical implementation in `model.mjs`; the visual reads its trace.
+
+Judgment: **ready to try together**. Keeping controls on the objects they change makes the computation easier to explore. The visual direction still needs the learner's judgment; passing numerical checks cannot establish that it teaches well.
 
 ## 1. Turn the scene into numbers
 
@@ -75,7 +88,7 @@ No dataset is implied. Repeated updates on one scene can memorize a label and da
 
 ## 5. Read the visual honestly
 
-The six stage buttons choose a view; the model's small numerical forward pass runs immediately. Playback illustrates the route of information at a human-readable speed. All activations, attention weights, gradients and updated parameters are actual model values.
+The model's small numerical forward pass runs immediately when a value changes. Playback illustrates the route of information at a human-readable speed. Hovering or selecting nodes and paths exposes actual activations, attention weights and contributions. During backward playback, final-weight paths expose the pending gradient; after an update they show the old and new weight.
 
 Judgment: **agree for understanding**, with illustrative timing stated clearly. Profiling CPU/GPU execution would be another experiment. The SVG is a conceptual network view, not a hardware diagram.
 
@@ -83,7 +96,11 @@ Judgment: **agree for understanding**, with illustrative timing stated clearly. 
 
 Five Node tests passed: stable softmax, a hand-computable uniform attention case, feature-specific query behavior, output-layer learning with immutable inputs, and analytic gradients matched against central finite differences.
 
-In Chrome, equal evidence gave three probabilities of one third. One training step targeting Right reduced loss from 1.098612 to 0.920506 at learning rate 0.2. Attention stayed unchanged and the decision became Right. The reset restored initial model parameters.
+In Chrome, the redesigned graph fits the desktop viewport without page scrolling. Changing Left clearance from 0.35 to 1 through the graph's input handler raised its Head A attention from 0.217352 to 0.410493 while leaving Head B unchanged. Selecting a connection and editing its weight recomputed the hidden values. Selecting a decision changed the training target.
+
+One training step on the original scene targeting Right reduced loss from 1.315445 to 1.094645 at learning rate 0.2. The earlier layers stayed unchanged. Stopping playback before the update applied no changes. These browser checks use Chrome automation, including dispatched input and keyboard events; they do not replace a user's drag-and-explore test.
+
+A browser observer captured all nine training stages: parameters remained unchanged through the backward stage, then exactly one update changed final weights and biases. Inference playback left all parameters unchanged. The separate walkthrough displayed the imported training function beside its pseudocode. Chrome reported no application console errors.
 
 These checks establish the small numerical and interaction claims. They do not establish dataset accuracy, calibrated scores, end-to-end training, or a trained transformer.
 

@@ -16,14 +16,19 @@ Open http://127.0.0.1:8795. Python is only serving files; all computation happen
 
 ## Explore
 
-1. Play a forward pass or step through each stage.
-2. Edit route clearance/progress. Watch attention and the decision change.
-3. Edit either head's query. Negative values favor lower feature values.
-4. Reset the model and choose Equal evidence: both heads and final probabilities become uniform. The tie chooses Left by enum order.
-5. Choose a training target and take one step. Inspect the actual loss, gradients and weight update.
-6. Read pseudocode next to the running functions in the walkthrough panel.
+The graph is the interface. There are no separate control panels or value tables.
 
-Reset model preserves the input scene but restores all matrices and queries. Original scene changes inputs only. Changes live in memory; reloading resets everything. There is no automatic persistence or background training.
+1. Move the clearance/progress sliders inside an input node. Watch attention and the decision change.
+2. Move either attention head's query sliders. Negative values favor lower feature values. Set all four query coordinates to zero for uniform attention and, with the initial classifier weights, uniform decisions.
+3. Hover a node or pathway for its computation and current values. Click it to keep the details open next to it. Keyboard focus, then Enter or Space, works too.
+4. Click a connection into the hidden or decision layer to edit its weight. Click a hidden neuron to edit its bias.
+5. Click Left, Forward or Right to choose the training target. Click Loss to change the learning rate.
+6. Play inference to follow the forward flow. Play training to follow that flow, the loss, the backward gradient flow and one parameter update. Stop before the update to cancel it.
+7. Open **Code ↗** for pseudocode beside the actual running functions on a separate page.
+
+The six small A/B nodes preserve both head outputs individually. The green dot marks the current decision; the pink outline marks the training target. Thin dashed connections have zero weight, but can still be selected and edited.
+
+Reset restores the original inputs, all parameters, target and learning rate. Changes live in memory; reloading resets everything. There is no automatic persistence or background training. On smaller screens, the graph itself scrolls.
 
 ## The network
 
@@ -39,13 +44,14 @@ The initial sparse projections deliberately make values route-identity vectors, 
 
 Training implements exact cross-entropy gradients for the final 3 → 3 weights and biases only. Attention, key/value projections and the hidden layer remain frozen. Editing a query is a manual parameter change, not training. A complete from-scratch transformer, end-to-end backpropagation, dataset, optimizer schedule, calibration and generalization evaluation are later experiments.
 
-The six-stage animation is replay at a readable speed. The numerical values are real; the dots are not hardware timing, a causal explanation, or an independently measured signal. The gradient arrow illustrates the actual update's scope. Inference never changes weights.
+Animation replays the computation at a readable speed. The numerical values are real; the dots are not hardware timing, a causal explanation, or an independently measured signal. Pink backward flow shows the final-layer gradient paths. Earlier layers stay frozen. Inference never changes weights.
 
 ## Files to read
 
 - [model.mjs](model.mjs): the full computation and one training update.
-- [app.mjs](app.mjs): controls, network diagram, intermediate-value views and function walkthrough.
-- [index.html](index.html), [style.css](style.css): reading surface.
+- [app.mjs](app.mjs): graph construction, node/path editing and playback.
+- [index.html](index.html), [style.css](style.css): full-screen graph surface.
+- [walkthrough.html](walkthrough.html), [walkthrough.mjs](walkthrough.mjs): separate pseudocode and imported function source.
 - [WALKTHROUGH.md](WALKTHROUGH.md): before/after, pseudocode, design judgment, proof and questions.
 - [model.test.mjs](model.test.mjs): numerical checks with independent cases.
 
@@ -59,7 +65,7 @@ node --test model.test.mjs
 
 Tests verify softmax stability, uniform attention for a zero query, feature-specific head response, closed-set output, loss decrease on one example, frozen upstream values and analytic gradients against central finite differences.
 
-Browser checks: Chrome controls produced uniform outputs for equal evidence. One Right-target update reduced loss from 1.098612 to 0.920506 at learning rate 0.2; attention stayed unchanged. These are observations on one synthetic scene, not accuracy or calibration results.
+Browser checks cover graph controls, inference without weight changes, training cancellation and the delayed parameter update. With the original scene, one Right-target update reduced loss from 1.315445 to 1.094645 at learning rate 0.2; earlier layers stayed unchanged. See [WALKTHROUGH.md](WALKTHROUGH.md) for the observed checks and their limits. These are observations on a synthetic scene, not accuracy or calibration results.
 
 ## What typed output buys us
 

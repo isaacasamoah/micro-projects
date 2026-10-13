@@ -1,126 +1,672 @@
-import { DECISIONS, createModel, defaultInputs, forward, trainOutput, attend, softmax, project, crossEntropy } from './model.mjs';
-const $ = selector => document.querySelector(selector);
-const f = n => n.toFixed(3), vector = xs => `[${xs.map(f).join(', ')}]`;
-let model = createModel(), inputs = defaultInputs(), stage = 0, timer = null, trainingTimer = null, training = null, updates = 0;
-const stageNames = ['Inputs', 'Project K / V', 'Attend', 'Concatenate', 'Hidden layer', 'Decide'];
-const stageDescriptions = [
-  'Each route is five numbers: clearance, progress, and three route-identity bits. These are supplied features; no perception model is hidden here.',
-  'Multiply each input by Wk and Wv. Keys describe what a route offers; values describe what information to carry onward. Inspect the exact matrices below.',
-  'Each head compares its query with every key, divides scores by √2, applies softmax, and sums the values using those weights. Line thickness shows that attention weight.',
-  'Join the two three-number head outputs into one six-number vector. Concatenation preserves both views; it does not average them.',
-  'A 6 → 3 linear layer mixes the head outputs. Add a bias and apply ReLU: negative numbers become zero. These weights stay fixed in this first experiment.',
-  'A 3 → 3 linear layer produces one logit per allowed decision. Softmax normalizes them; argmax chooses an enum member. No text decoding or token loop.'
-];
-const controls = (prefix, rows, labels, names, min, max, step) => rows.map((row, i) => `<div class="${prefix === 'input' ? 'route' : 'query'}"><strong>${names[i]}</strong>${row.map((value, j) => `<label class="feature" for="${prefix}-${i}-${j}"><span>${labels[j]}</span><input id="${prefix}-${i}-${j}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"><output for="${prefix}-${i}-${j}">${value.toFixed(2)}</output></label>`).join('')}</div>`).join('');
-$('#inputs').innerHTML = controls('input', inputs, ['Clearance', 'Progress'], DECISIONS, 0, 1, .01);
-$('#queries').innerHTML = controls('query', model.queries, ['Clearance', 'Progress'], ['Head A · starts with clearance', 'Head B · starts with progress'], -4, 4, .1);
-$('#stages').innerHTML = stageNames.map((name, i) => `<button data-stage="${i}">${i + 1}. ${name}</button>`).join('');
-function stopPlayback() {
-  if (timer) clearInterval(timer); timer = null;
-  if (trainingTimer) clearTimeout(trainingTimer); trainingTimer = null;
-  $('#play').textContent = '▶ Play inference';
+import {
+  DECISIONS,
+  createModel,
+  defaultInputs,
+  forward,
+  trainOutput,
+  crossEntropy,
+} from "./model.mjs";
+const $ = (selector) => document.querySelector(selector);
+const number = (value) => value.toFixed(3),
+  vector = (values) => `[${values.map(number).join(", ")}]`;
+let model = createModel(),
+  inputs = defaultInputs(),
+  trace = forward(model, inputs),
+  target = 2,
+  rate = 0.2;
+let phase = -1,
+  mode = null,
+  timer = null,
+  pending = null,
+  lastUpdate = null,
+  updates = 0;
+const nodes = new Map(),
+  edges = new Map(),
+  parts = [];
+const rows = [185, 365, 545],
+  joinedRows = [145, 225, 305, 435, 515, 595];
+function text(x, y, label, className = "", id = "") {
+  return `<text x="${x}" y="${y}" text-anchor="middle" class="${className}" ${id ? `id="${id}"` : ""}>${label}</text>`;
 }
-function clearUpdate() { training = null; $('#phase-note').textContent = 'Inputs changed. Previous update detail cleared; learned output weights remain.'; }
-function syncControls() {
-  for (const [prefix, rows] of [['input', inputs], ['query', model.queries]]) rows.forEach((row, i) => row.forEach((value, j) => {
-    const slider = $(`#${prefix}-${i}-${j}`); slider.value = value; slider.nextElementSibling.textContent = value.toFixed(2);
-  }));
+function node(id, x, y, w, h, content, info, stage, circle = false) {
+  nodes.set(id, { info, stage });
+  const shape = circle
+    ? `<circle class="node-shape" cx="${x}" cy="${y}" r="${w / 2}"/>`
+    : `<rect class="node-shape" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="18"/>`;
+  parts.push(
+    `<g id="node-${id}" data-node="${id}" class="node-group" tabindex="0" role="button" aria-label="${info.title}">${shape}${content}</g>`,
+  );
 }
-for (const prefix of ['input', 'query']) $(`#${prefix === 'input' ? 'inputs' : 'queries'}`).addEventListener('input', event => {
-  const [, i, j] = event.target.id.split('-');
-  if (i === undefined) return;
-  (prefix === 'input' ? inputs : model.queries)[Number(i)][Number(j)] = Number(event.target.value);
-  event.target.nextElementSibling.textContent = Number(event.target.value).toFixed(2);
-  stopPlayback(); clearUpdate(); render();
+function path(a, b) {
+  return `M${a[0]},${a[1]} C${(a[0] + b[0]) / 2},${a[1]} ${(a[0] + b[0]) / 2},${b[1]} ${b[0]},${b[1]}`;
+}
+function edge(
+  id,
+  a,
+  b,
+  stage,
+  info,
+  weight = () => 1,
+  color = "#617b97",
+  parameter = null,
+) {
+  const d = path(a, b);
+  edges.set(id, { a, b, stage, info, weight, parameter });
+  parts.push(
+    `<g id="edge-${id}" data-edge="${id}" class="edge-group" tabindex="0" role="button" aria-label="${info.title}"><path class="connection" d="${d}" style="stroke:${color}"/><path class="connection-hit" d="${d}"/></g>`,
+  );
+}
+const prose = (title, description, detail = () => "") => ({
+  title,
+  description,
+  detail,
 });
-function table(headers, rows, extra = '') {
-  return `<div class="matrix-wrap"><table class="${extra}"><thead><tr>${headers.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(x => `<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const yHead = [240, 510];
+rows.forEach((y, i) => {
+  edge(
+    `input-${i}`,
+    [215, y],
+    [269, y],
+    1,
+    prose(
+      `${DECISIONS[i]} → keys and values`,
+      "Multiply the five input coordinates by the key and value matrices.",
+      () =>
+        `input = ${vector(trace.tokens[i])}\nkey = ${vector(trace.keys[i])}\nvalue = ${vector(trace.values[i])}`,
+    ),
+  );
+  for (let h = 0; h < 2; h++)
+    edge(
+      `attention-${h}-${i}`,
+      [331, y],
+      [385, yHead[h]],
+      2,
+      prose(
+        `${DECISIONS[i]} → head ${h ? "B" : "A"}`,
+        "This pathway carries a projected key and value. Thickness shows the attention weight this route receives.",
+        () =>
+          `query = ${vector(model.queries[h])}\nkey = ${vector(trace.keys[i])}\nscore = q·k / √2 = ${number(trace.heads[h].scores[i])}\nattention = ${number(trace.heads[h].weights[i])}\nvalue = ${vector(trace.values[i])}`,
+      ),
+      () => trace.heads[h].weights[i],
+      h ? "#f2bc77" : "#86b9ff",
+    );
+});
+for (let h = 0; h < 2; h++)
+  for (let i = 0; i < 3; i++) {
+    const j = h * 3 + i;
+    edge(
+      `head-${j}`,
+      [615, yHead[h]],
+      [736, joinedRows[j]],
+      3,
+      prose(
+        `Head ${h ? "B" : "A"} → value ${i + 1}`,
+        "Copy this head-output coordinate into the joined vector. There is no new weight and no averaging at this step.",
+        () =>
+          `joined[${j}] = head${h ? "B" : "A"}[${i}] = ${number(trace.joined[j])}`,
+      ),
+      () => trace.joined[j],
+      h ? "#f2bc77" : "#86b9ff",
+    );
+  }
+for (let i = 0; i < 6; i++)
+  for (let j = 0; j < 3; j++)
+    edge(
+      `hidden-${i}-${j}`,
+      [784, joinedRows[i]],
+      [954, rows[j]],
+      4,
+      prose(
+        `Joined ${i + 1} → hidden ${j + 1}`,
+        "This connection multiplies one joined value by a hidden-layer weight. Click to edit that weight manually.",
+        () =>
+          `${number(trace.joined[i])} × ${number(model.hiddenWeights[i][j])} = ${number(trace.joined[i] * model.hiddenWeights[i][j])}\nThen sum all six contributions, add bias and apply ReLU.`,
+      ),
+      () => model.hiddenWeights[i][j],
+      "#7891ab",
+      { group: "hiddenWeights", i, j },
+    );
+for (let i = 0; i < 3; i++)
+  for (let j = 0; j < 3; j++)
+    edge(
+      `output-${i}-${j}`,
+      [1046, rows[i]],
+      [1180, rows[j]],
+      5,
+      prose(
+        `Hidden ${i + 1} → ${DECISIONS[j]} logit`,
+        "One trainable output weight. Training changes this weight using hidden activation × output error.",
+        () =>
+          `weight = ${number(model.outputWeights[i][j])}\ncontribution = ${number(trace.hidden[i] * model.outputWeights[i][j])}${phase === 7 && pending ? `\ngradient = ${number(pending.gradients[i][j])}\nnext weight = ${number(pending.weightsAfter[i][j])}` : lastUpdate ? `\nlast gradient = ${number(lastUpdate.gradients[i][j])}\nlast update: ${number(lastUpdate.weightsBefore[i][j])} → ${number(lastUpdate.weightsAfter[i][j])}` : ""}`,
+      ),
+      () => model.outputWeights[i][j],
+      "#7eafad",
+      { group: "outputWeights", i, j },
+    );
+for (let j = 0; j < 3; j++)
+  edge(
+    `loss-${j}`,
+    [1310, rows[j]],
+    [1240, 704],
+    6,
+    prose(
+      `${DECISIONS[j]} probability → loss`,
+      "Cross-entropy compares the predicted distribution with the selected target label.",
+      () =>
+        `target = ${DECISIONS[target]}\nP(target) = ${number(trace.probabilities[target])}\nloss = −ln(P(target)) = ${number(crossEntropy(trace.logits, target))}`,
+    ),
+    () => 0.3,
+    "#9c709c",
+  );
+parts.push('<g id="particles" aria-hidden="true"></g>');
+[
+  ["INPUTS", 120],
+  ["PROJECT", 300],
+  ["ATTENTION", 500],
+  ["BOTH HEAD OUTPUTS", 760],
+  ["HIDDEN", 1000],
+  ["TYPED DECISION", 1245],
+].forEach(([s, x]) => parts.push(text(x, 70, s, "caption")));
+function sliderCard(
+  prefix,
+  i,
+  title,
+  labels,
+  values,
+  x,
+  y,
+  w,
+  h,
+  min,
+  max,
+  step,
+  cls = "",
+) {
+  return `<foreignObject x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" class="node-card ${cls}"><strong>${title}</strong>${labels.map((label, j) => `<label><span>${label}</span><input aria-label="${title} ${label}" id="${prefix}-${i}-${j}" type="range" min="${min}" max="${max}" step="${step}" value="${values[j]}"/><output id="value-${prefix}-${i}-${j}">${values[j].toFixed(2)}</output></label>`).join("")}</div></foreignObject>`;
 }
-function diagram(trace, backward = false) {
-  const parts = [], y = [105, 205, 305];
-  function line(x1, y1, x2, y2, phase, weight = 1, color = '#667e98') {
-    const path = `M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`;
-    const active = phase === stage;
-    parts.push(`<path d="${path}" fill="none" stroke="${color}" stroke-width="${phase === 2 ? 1 + 6 * weight : 1.5}" opacity="${active ? .9 : .25}"/>`);
-    if (active && timer && !matchMedia('(prefers-reduced-motion: reduce)').matches) parts.push(`<circle r="3.5" fill="${color}"><animateMotion dur="0.85s" repeatCount="indefinite" path="${path}"/></circle>`);
+rows.forEach((y, i) => {
+  node(
+    `input-${i}`,
+    120,
+    y,
+    190,
+    132,
+    sliderCard(
+      "input",
+      i,
+      DECISIONS[i],
+      ["Clearance", "Progress"],
+      inputs[i],
+      120,
+      y,
+      190,
+      132,
+      0,
+      1,
+      0.01,
+    ),
+    prose(
+      `${DECISIONS[i]} inputs`,
+      "Two synthetic features on a 0–1 scale. Higher clearance means less obstruction; higher progress means more progress toward a goal. Neither is a probability.",
+      () =>
+        `token = ${vector(trace.tokens[i])}\nLast three coordinates encode route identity.`,
+    ),
+    0,
+  );
+  node(
+    `project-${i}`,
+    300,
+    y,
+    62,
+    62,
+    text(300, y - 3, "K / V") + text(300, y + 15, "5 → 2 / 3", "tiny"),
+    prose(
+      `${DECISIONS[i]} projection`,
+      "Keys are compared with a query. Values are the information that attention blends. These shared projections stay fixed during the training demonstration.",
+      () =>
+        `key = ${vector(trace.keys[i])}\nvalue = ${vector(trace.values[i])}\n\nWk = ${JSON.stringify(model.keyWeights)}\nWv = ${JSON.stringify(model.valueWeights)}`,
+    ),
+    1,
+    true,
+  );
+});
+yHead.forEach((y, h) =>
+  node(
+    `head-${h}`,
+    500,
+    y,
+    230,
+    146,
+    sliderCard(
+      "query",
+      h,
+      `Head ${h ? "B" : "A"}`,
+      ["Clearance", "Progress"],
+      model.queries[h],
+      500,
+      y,
+      230,
+      146,
+      -4,
+      4,
+      0.1,
+      h ? "head-b" : "head-a",
+    ),
+    prose(
+      `Head ${h ? "B" : "A"}`,
+      "Edit the query to change what this head looks for. Both heads compare their query with every route key, then blend the values. Query values can be negative.",
+      () =>
+        `query = ${vector(model.queries[h])}\nscores = ${vector(trace.heads[h].scores)}\nattention = ${vector(trace.heads[h].weights)}\noutput = ${vector(trace.heads[h].output)}\n\nsoftmax(q·K / √2) × V`,
+    ),
+    2,
+  ),
+);
+joinedRows.forEach((y, i) =>
+  node(
+    `joined-${i}`,
+    760,
+    y,
+    48,
+    48,
+    text(760, y + 5, "", "value", `joined-value-${i}`) +
+      text(710, y + 4, `${i < 3 ? "A" : "B"}${(i % 3) + 1}`, "tiny"),
+    prose(
+      `Joined value ${i + 1}: ${i < 3 ? "A" : "B"}${(i % 3) + 1}`,
+      "Concatenation keeps the two head outputs separate: A1, A2, A3, B1, B2, B3. This node copies a number; it does not calculate an average.",
+      () =>
+        `[${trace.joined.map((x, j) => (j === i ? `→${number(x)}←` : number(x))).join(", ")}]`,
+    ),
+    3,
+    true,
+  ),
+);
+rows.forEach((y, i) => {
+  node(
+    `hidden-${i}`,
+    1000,
+    y,
+    92,
+    92,
+    text(1000, y - 15, `h${i + 1}`) +
+      text(1000, y + 9, "", "value", `hidden-value-${i}`) +
+      text(1000, y + 28, "ReLU", "tiny"),
+    prose(
+      `Hidden neuron ${i + 1}`,
+      "Combine all six incoming weighted values, add a bias and set negative results to zero. Click an incoming pathway to edit its weight.",
+      () =>
+        `pre-activation = ${number(trace.preHidden[i])}\nbias = ${number(model.hiddenBias[i])}\nReLU = max(0, pre-activation)\noutput = ${number(trace.hidden[i])}`,
+    ),
+    4,
+    true,
+  );
+  node(
+    `decision-${i}`,
+    1245,
+    y,
+    130,
+    130,
+    text(1245, y - 22, DECISIONS[i]) +
+      text(1245, y + 4, "", "value", `probability-${i}`) +
+      text(1245, y + 27, "", "tiny", `target-${i}`) +
+      `<circle class="winner-dot" cx="1290" cy="${y - 43}" r="5"/>`,
+    prose(
+      `${DECISIONS[i]} decision`,
+      "Click to make this the training target. The highest probability is selected for inference. A fixed label set prevents malformed output, not incorrect decisions.",
+      () =>
+        `logit = ${number(trace.logits[i])}\nprobability = ${number(trace.probabilities[i])}\noutput bias = ${number(model.outputBias[i])}\nselected = ${trace.decision}\n\nThese probabilities are not calibrated. Ties pick the first label.`,
+    ),
+    5,
+    true,
+  );
+});
+node(
+  "loss",
+  1190,
+  710,
+  100,
+  100,
+  text(1190, 699, "Loss", "loss-label") +
+    text(1190, 724, "", "value", "loss-value"),
+  prose(
+    "Training signal",
+    "Click a decision node to set the label. Cross-entropy measures how little probability the model gives that label. Training updates the output layer only.",
+    () =>
+      `target = ${DECISIONS[target]}\nloss = ${number(crossEntropy(trace.logits, target))}\nlearning rate = ${rate.toFixed(2)}\nupdates = ${updates}${lastUpdate ? `\nlast loss: ${number(lastUpdate.lossBefore)} → ${number(lastUpdate.lossAfter)}` : ""}`,
+  ),
+  6,
+  true,
+);
+parts.push(
+  text(1000, 662, "", "frozen-note", "frozen-note"),
+  text(1185, 798, "", "learning-note", "learning-note"),
+);
+$("#graph").innerHTML = parts.join("");
+function stop() {
+  clearTimeout(timer);
+  timer = null;
+  pending = null;
+  mode = null;
+  phase = -1;
+  $("#inference").textContent = "▶ Play inference";
+  $("#training").textContent = "↶ Play training";
+}
+function invalidate() {
+  stop();
+  lastUpdate = null;
+  $("#status").textContent = "Manual edit · the network recomputed";
+}
+function update() {
+  trace = forward(model, inputs);
+  for (const [id, item] of nodes)
+    $(`#node-${id}`).classList.toggle(
+      "active",
+      item.stage === phase || (phase === 8 && id.startsWith("decision")),
+    );
+  for (const [id, item] of edges) {
+    const group = $(`#edge-${id}`),
+      line = group.querySelector(".connection"),
+      weight = item.weight();
+    line.setAttribute(
+      "stroke-width",
+      String(
+        0.7 +
+          Math.min(
+            4,
+            Math.abs(weight) * (id.startsWith("attention") ? 6 : 1.4),
+          ),
+      ),
+    );
+    line.setAttribute("stroke-dasharray", Math.abs(weight) < 1e-9 ? "3 6" : "");
+    line.style.opacity =
+      phase >= 7 && id.startsWith("output")
+        ? "1"
+        : Math.abs(weight) < 1e-9
+          ? ".14"
+          : phase === item.stage
+            ? ".95"
+            : ".48";
+    group.classList.toggle("active", phase === item.stage);
+    group.classList.toggle("backward", phase >= 7 && id.startsWith("output"));
   }
-  function node(x, cy, width, height, label, detail, phase, color = '#7be1be') {
-    const active = phase === stage;
-    parts.push(`<rect class="node ${active ? 'active' : ''}" x="${x}" y="${cy-height/2}" width="${width}" height="${height}" rx="10"/>`);
-    parts.push(`<text x="${x+width/2}" y="${cy-4}" text-anchor="middle" style="fill:${active ? color : '#eef3fa'}">${label}</text><text class="small" x="${x+width/2}" y="${cy+15}" text-anchor="middle">${detail}</text>`);
-  }
-  const headings = [['ROUTE FEATURES', 73], ['KEYS + VALUES', 248], ['ATTENTION HEADS', 445], ['JOIN', 633], ['HIDDEN', 801], ['DECISION', 1030]];
-  headings.forEach(([title, x]) => parts.push(`<text class="label" x="${x}" y="32" text-anchor="middle">${title}</text>`));
-  y.forEach((cy, i) => {
-    line(135, cy, 190, cy, 1);
-    for (let h = 0; h < 2; h++) line(305, cy, 377, 140 + h * 140, 2, trace.heads[h].weights[i], h ? '#f2bb75' : '#83b8ff');
+  trace.joined.forEach(
+    (v, i) => ($(`#joined-value-${i}`).textContent = number(v)),
+  );
+  trace.hidden.forEach(
+    (v, i) => ($(`#hidden-value-${i}`).textContent = number(v)),
+  );
+  trace.probabilities.forEach((p, i) => {
+    $(`#probability-${i}`).textContent = `${(p * 100).toFixed(1)}%`;
+    $(`#target-${i}`).textContent = i === target ? "◎ training target" : "";
+    $(`#node-decision-${i}`).classList.toggle("target", i === target);
+    $(`#node-decision-${i}`).classList.toggle(
+      "winner",
+      trace.decision === DECISIONS[i],
+    );
   });
-  for (let h = 0; h < 2; h++) line(518, 140 + h * 140, 585, 205, 3);
-  y.forEach(cy => { line(685, 205, 770, cy, 4); y.forEach(out => line(832, cy, 964, out, 5)); });
-  y.forEach((cy, i) => {
-    node(10, cy, 125, 62, DECISIONS[i], `${inputs[i][0].toFixed(2)} / ${inputs[i][1].toFixed(2)}`, 0);
-    node(190, cy, 115, 62, `K ${vector(trace.keys[i])}`, `V [${trace.values[i].join(', ')}]`, 1);
-    node(770, cy, 62, 58, `h${i + 1}`, f(trace.hidden[i]), 4);
-    node(964, cy, 140, 62, DECISIONS[i], `${(trace.probabilities[i] * 100).toFixed(1)}%`, 5);
-  });
-  for (let h = 0; h < 2; h++) {
-    const cy = 140 + h * 140, color = h ? '#f2bb75' : '#83b8ff';
-    node(377, cy, 141, 100, `Head ${h ? 'B' : 'A'}`, `q ${vector(model.queries[h])}`, 2, color);
-    parts.push(`<text class="small" x="447" y="${cy+37}" text-anchor="middle">${trace.heads[h].weights.map(v => (v*100).toFixed(0)+'%').join(' / ')}</text>`);
+  $("#loss-value").textContent = number(crossEntropy(trace.logits, target));
+  $("#frozen-note").textContent =
+    mode === "training" ? "↑ earlier layers stay frozen" : "";
+  $("#learning-note").textContent =
+    phase >= 7
+      ? "only final weights + biases update"
+      : `teach ${DECISIONS[target]} · η ${rate.toFixed(2)}`;
+  for (const [prefix, values] of [
+    ["input", inputs],
+    ["query", model.queries],
+  ])
+    values.forEach((row, i) =>
+      row.forEach((v, j) => {
+        $(`#value-${prefix}-${i}-${j}`).textContent = v.toFixed(2);
+        const input = $(`#${prefix}-${i}-${j}`);
+        if (document.activeElement !== input) input.value = v;
+      }),
+    );
+  animateEdges();
+}
+function animateEdges() {
+  if (!mode || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    $("#particles").innerHTML = "";
+    return;
   }
-  node(585, 205, 100, 188, '6 values', 'A then B', 3);
-  trace.joined.forEach((v, i) => parts.push(`<rect x="${592+i*14}" y="${185-v*85}" width="9" height="${v*85}" rx="3" fill="${i < 3 ? '#83b8ff' : '#f2bb75'}"/>`));
-  if (backward) {
-    parts.push('<path d="M1070,369 L804,369" stroke="#e4a0e7" stroke-width="3" stroke-dasharray="7 5"/><text x="944" y="395" text-anchor="middle" style="fill:#e4a0e7">loss → gradients → final weights only</text>');
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) parts.push('<circle r="5" fill="#e4a0e7"><animateMotion dur="1.2s" repeatCount="indefinite" path="M1070,369 L804,369"/></circle>');
-  } else parts.push('<text class="small" x="560" y="388" text-anchor="middle">Flow playback is illustrative. All displayed weights and activations are computed.</text>');
-  $('#network').innerHTML = parts.join('');
+  const reverse = phase === 7;
+  $("#particles").innerHTML = [...edges.values()]
+    .filter((e) =>
+      reverse ? e.parameter?.group === "outputWeights" : e.stage === phase,
+    )
+    .map(
+      (e) =>
+        `<circle class="particle" r="4" fill="${reverse ? "#e8a3e6" : "#81e2be"}"><animateMotion dur="1.0s" repeatCount="indefinite" path="${reverse ? path(e.b, e.a) : path(e.a, e.b)}"/></circle>`,
+    )
+    .join("");
 }
-function renderTraining() {
-  if (!training) { $('#training-result').innerHTML = `<p class="subtle">${updates} output-layer updates so far. Change the target to explore a different training signal. Only the most recent update is shown.</p>`; return; }
-  $('#training-result').innerHTML = `<div class="metric">Loss ${f(training.lossBefore)} → ${f(training.lossAfter)}</div><p>Update ${updates} · target ${DECISIONS[training.target]} · learning rate ${training.rate.toFixed(2)}</p><p class="subtle">Actual cross-entropy on this one scene. Lower loss here does not establish generalization or calibration.</p><details><summary>Inspect the gradients and parameter change</summary><pre>logit gradient = probabilities − one-hot target\n${vector(training.biasGradients)}\n\nweight gradient[i,j] = hidden[i] × logit gradient[j]\nnew weight = old weight − rate × gradient</pre>${table(['Weight','Before','Gradient','After'], training.gradients.flatMap((row, i) => row.map((g, j) => [`h${i+1} → ${DECISIONS[j]}`, f(training.weightsBefore[i][j]), f(g), f(training.weightsAfter[i][j])])), 'gradient')}</details>`;
-}
-function render(backward = false) {
-  const trace = forward(model, inputs);
-  document.querySelectorAll('[data-stage]').forEach(button => button.setAttribute('aria-current', Number(button.dataset.stage) === stage ? 'step' : 'false'));
-  $('#inspector').innerHTML = `<strong>${stage + 1}. ${stageNames[stage]}</strong><p>${stageDescriptions[stage]}</p>`;
-  diagram(trace, backward);
-  $('#decision-title').textContent = `Decision: ${trace.decision}`;
-  $('#probabilities').innerHTML = trace.probabilities.map((p, i) => `<div class="prob ${trace.decision === DECISIONS[i] ? 'selected' : ''}"><span>${DECISIONS[i]}</span><div class="bar"><div class="fill" style="width:${p*100}%"></div></div><b>${(p*100).toFixed(1)}%</b></div>`).join('');
-  $('#typed').textContent = `enum Route { Left, Forward, Right }\n\nRoute::${trace.decision}`;
-  $('#projection-values').innerHTML = table(['Route', 'Input x', 'Key xWk', 'Value xWv'], DECISIONS.map((name, i) => [name, vector(trace.tokens[i]), vector(trace.keys[i]), vector(trace.values[i])]));
-  $('#attention-values').innerHTML = trace.heads.map((head, i) => `<h3>Head ${i ? 'B' : 'A'} · query ${vector(head.query)}</h3>${table(['Route','q·k / √2','Softmax weight'], DECISIONS.map((name, j) => [name, f(head.scores[j]), f(head.weights[j])]))}<pre>weighted sum of values = ${vector(head.output)}</pre>`).join('');
-  $('#layer-values').innerHTML = `<pre>joined  = ${vector(trace.joined)}\npreReLU = ${vector(trace.preHidden)}\nReLU    = ${vector(trace.hidden)}\nlogits  = ${vector(trace.logits)}\nsoftmax = ${vector(trace.probabilities)}</pre>`;
-  $('#matrices').textContent = JSON.stringify(model, null, 2);
-  renderTraining();
-}
-$('#stages').onclick = event => { const button = event.target.closest('button'); if (!button) return; stopPlayback(); stage = Number(button.dataset.stage); render(); };
-$('#step').onclick = () => { stopPlayback(); stage = (stage + 1) % stageNames.length; $('#phase-note').textContent = 'Stepping through one forward computation. Weights are unchanged.'; render(); };
-$('#play').onclick = () => {
-  if (timer) { stopPlayback(); render(); return; }
-  stopPlayback(); stage = 0; $('#play').textContent = 'Pause'; $('#phase-note').textContent = 'Forward pass: read the input, mix evidence, choose a label.';
-  timer = setInterval(() => { if (stage === stageNames.length - 1) { stopPlayback(); $('#phase-note').textContent = 'Inference complete. Model weights stayed fixed.'; } else stage++; render(); }, 1100);
-  render();
-};
-$('#reset').onclick = () => { stopPlayback(); model = createModel(); training = null; updates = 0; stage = 0; syncControls(); $('#phase-note').textContent = 'Model reset to hand-set weights. Input scene preserved.'; render(); };
-$('#equal').onclick = () => { stopPlayback(); inputs = DECISIONS.map(() => [.5, .5]); clearUpdate(); syncControls(); render(); };
-$('#defaults').onclick = () => { stopPlayback(); inputs = defaultInputs(); clearUpdate(); syncControls(); render(); };
-$('#rate').oninput = event => { $('#rate-value').textContent = Number(event.target.value).toFixed(2); };
-$('#train').onclick = () => {
-  stopPlayback(); training = trainOutput(model, inputs, Number($('#target').value), Number($('#rate').value)); model = training.model; updates++; stage = 5;
-  $('#phase-note').textContent = 'Training updated the final layer. Everything upstream stayed fixed; the arrows replay that update.';
-  render(true); trainingTimer = setTimeout(() => { trainingTimer = null; render(); }, 2600);
-};
-const walkthrough = [
-  {name:'1. Linear projection', fn:project, pseudo:'For each output feature:\n  combine all input features\n  using one column of weights.\n\nThis same operation makes keys,\nvalues, hidden features and logits.', verdict:'Agree for this slice: explicit sums expose every multiply/add. Matrix libraries are faster, but would hide the first thing we want to understand.'},
-  {name:'2. Stable softmax', fn:softmax, pseudo:'Shift all scores by the maximum.\nExponentiate each shifted score.\nDivide by their total.\n\nThe outputs are positive and sum to one.', verdict:'Agree: subtracting the maximum preserves the distribution and avoids overflow. Normalization alone is not evidence of calibrated probabilities.'},
-  {name:'3. One attention head', fn:attend, pseudo:'Compare the query with each key.\nScale the scores by √key dimension.\nTurn scores into attention weights.\nUse them to average the value vectors.', verdict:'Agree with a limit: this is query pooling over route tokens. A full transformer would add token-wise queries, residuals, normalization and more blocks.'},
-  {name:'4. The forward pass', fn:forward, pseudo:'Encode route features and identity.\nProject keys and values.\nRun both attention heads.\nJoin their results.\nMix through a hidden layer and ReLU.\nProduce three logits and probabilities.\nSelect one allowed route.', verdict:'Agree for exploration: a closed set of labels makes output structure explicit. Our enum is a JavaScript label list today; Rust will give us a compile-time enum.'},
-  {name:'5. Cross-entropy', fn:crossEntropy, pseudo:'Measure how much probability\nthe model assigned to the target.\n\nLoss = −log(probability of target).\nCompute from logits stably.', verdict:'Agree for a classification lesson: the target is supplied by you. One example and a lower loss do not establish that the target rule was learned.'},
-  {name:'6. One training update', fn:trainOutput, pseudo:'Run the current scene.\nCompare probabilities with its label.\nCompute final-layer gradients.\nUpdate final weights and biases.\nRun again and compare the loss.\n\nKeep earlier layers frozen.', verdict:'Agree with a deliberate boundary: the gradients are real and checked numerically. Full-network backpropagation and a dataset belong in later, individually explained slices.'}
+const phaseLabels = [
+  "Read the scene",
+  "Project inputs into keys and values",
+  "Compare, normalize, blend",
+  "Keep all six head outputs",
+  "Mix inputs in the hidden neurons",
+  "Score the three allowed decisions",
+  "Compare with the target label",
+  "Backpropagate error to final weights and biases",
+  "Apply one update, then predict again",
 ];
-$('#code-step').innerHTML = walkthrough.map((item, i) => `<option value="${i}">${item.name}</option>`).join('');
-function showCode() { const item = walkthrough[Number($('#code-step').value)]; $('#pseudo').textContent = item.pseudo; $('#code').textContent = item.fn.toString(); $('#verdict').textContent = item.verdict; }
-$('#code-step').onchange = showCode;
-window.kev = Object.freeze({ snapshot: () => structuredClone({ model, inputs, trace: forward(model, inputs), updates, training }) });
-showCode(); render();
+function play(kind) {
+  if (mode === kind) {
+    stop();
+    $("#status").textContent = `Stopped · ${updates} updates applied`;
+    update();
+    return;
+  }
+  stop();
+  mode = kind;
+  phase = 0;
+  if (kind === "training") pending = trainOutput(model, inputs, target, rate);
+  $(`#${kind}`).textContent = "■ Stop";
+  function next() {
+    if (phase === 8 && pending) {
+      lastUpdate = pending;
+      model = pending.model;
+      pending = null;
+      updates++;
+    }
+    $("#status").textContent =
+      `${kind === "training" ? "Training" : "Inference"} · ${phaseLabels[phase]}${phase === 8 ? ` · loss ${number(lastUpdate.lossBefore)} → ${number(lastUpdate.lossAfter)}` : ""}`;
+    update();
+    const last = kind === "training" ? 8 : 5;
+    timer = setTimeout(
+      () => {
+        if (phase === last) {
+          const message =
+            kind === "training"
+              ? `Update ${updates} · loss ${number(lastUpdate.lossBefore)} → ${number(lastUpdate.lossAfter)} · ${trace.decision}`
+              : `Inference → ${trace.decision} · weights unchanged`;
+          stop();
+          $("#status").textContent = message;
+          update();
+        } else {
+          phase++;
+          next();
+        }
+      },
+      kind === "training" && phase >= 6 ? 1300 : 850,
+    );
+  }
+  next();
+}
+function showTip(info, x, y) {
+  const tip = $("#tooltip");
+  tip.textContent = `${info.title}\n${info.description}\n${info.detail()}`;
+  tip.hidden = false;
+  tip.style.left = `${Math.max(8, Math.min(innerWidth - 325, x + 16))}px`;
+  tip.style.top = `${Math.max(70, Math.min(innerHeight - tip.offsetHeight - 48, y + 16))}px`;
+}
+function inspect(kind, id) {
+  const item = (kind === "edge" ? edges : nodes).get(id);
+  if (!item) return;
+  $("#tooltip").hidden = true;
+  const info = item.info;
+  $("#editor-content").innerHTML =
+    '<h2></h2><p></p><pre></pre><div id="parameter"></div>';
+  $("#editor h2").textContent = info.title;
+  $("#editor p").textContent = info.description;
+  $("#editor pre").textContent = info.detail();
+  const parameter = $("#parameter");
+  if (item.parameter) {
+    const { group, i, j } = item.parameter;
+    parameter.innerHTML = `<label>Weight <input id="weight-edit" type="number" min="-8" max="8" step="0.1" value="${model[group][i][j]}"/></label><p>${group === "outputWeights" ? "This weight is trainable." : "This weight stays frozen during training."} Editing it here is a manual change.</p>`;
+    $("#weight-edit").oninput = (event) => {
+      const input = event.target;
+      if (!input.value || !input.checkValidity()) return;
+      const v = Number(input.value);
+      if (!Number.isFinite(v)) return;
+      invalidate();
+      model[group][i][j] = v;
+      update();
+      $("#editor pre").textContent = info.detail();
+    };
+  }
+  if (kind === "node" && id === "loss") {
+    parameter.innerHTML = `<label>Learning rate <input id="rate-edit" type="range" min="0.01" max="1" step="0.01" value="${rate}"/></label><p>Choose the target on a decision node. Training updates only the final layer. Repeatedly teaching one scene can overfit it.</p>`;
+    $("#rate-edit").oninput = (event) => {
+      invalidate();
+      rate = Number(event.target.value);
+      update();
+      $("#editor pre").textContent = info.detail();
+    };
+  }
+  if (kind === "node" && id.startsWith("hidden-")) {
+    const i = Number(id.split("-")[1]);
+    parameter.innerHTML = `<label>Bias <input id="bias-edit" type="number" min="-8" max="8" step="0.1" value="${model.hiddenBias[i]}"/></label>`;
+    $("#bias-edit").oninput = (event) => {
+      if (!event.target.value || !event.target.checkValidity()) return;
+      invalidate();
+      model.hiddenBias[i] = Number(event.target.value);
+      update();
+      $("#editor pre").textContent = info.detail();
+    };
+  }
+  const editor = $("#editor");
+  editor.hidden = false;
+  const anchor = $(`#${kind}-${id}`).getBoundingClientRect();
+  const x =
+    anchor.right + 12 + editor.offsetWidth < innerWidth
+      ? anchor.right + 12
+      : anchor.left - editor.offsetWidth - 12;
+  editor.style.left = `${Math.max(12, Math.min(innerWidth - editor.offsetWidth - 12, x))}px`;
+  editor.style.top = `${Math.max(72, Math.min(innerHeight - editor.offsetHeight - 52, anchor.top))}px`;
+}
+function pick(element) {
+  const nodeId = element.dataset.node,
+    edgeId = element.dataset.edge;
+  if (nodeId?.startsWith("decision-")) {
+    invalidate();
+    target = Number(nodeId.split("-")[1]);
+    $("#status").textContent =
+      `Teach ${DECISIONS[target]} · press Play training`;
+    update();
+  }
+  inspect(nodeId ? "node" : "edge", nodeId || edgeId);
+}
+$("#graph").addEventListener("input", (event) => {
+  if (!event.target.matches("input[type=range]")) return;
+  const [prefix, i, j] = event.target.id.split("-");
+  invalidate();
+  (prefix === "input" ? inputs : model.queries)[Number(i)][Number(j)] = Number(
+    event.target.value,
+  );
+  update();
+  $("#editor").hidden = true;
+});
+$("#graph").addEventListener("pointerover", (event) => {
+  if (event.target.closest("input") || !$("#editor").hidden) return;
+  const element = event.target.closest("[data-node],[data-edge]");
+  if (!element) return;
+  const item = element.dataset.node
+    ? nodes.get(element.dataset.node)
+    : edges.get(element.dataset.edge);
+  showTip(item.info, event.clientX, event.clientY);
+});
+$("#graph").addEventListener("pointerout", (event) => {
+  const current = event.target.closest("[data-node],[data-edge]");
+  if (!current?.contains(event.relatedTarget)) $("#tooltip").hidden = true;
+});
+$("#graph").addEventListener("click", (event) => {
+  if (event.target.closest("input,label")) return;
+  const element = event.target.closest("[data-node],[data-edge]");
+  if (element) pick(element);
+  else {
+    $("#editor").hidden = true;
+  }
+});
+$("#graph").addEventListener("keydown", (event) => {
+  if (event.target.matches("input")) return;
+  if (event.key === "Enter" || event.key === " ") {
+    const element = event.target.closest("[data-node],[data-edge]");
+    if (element) {
+      event.preventDefault();
+      pick(element);
+    }
+  }
+});
+$("#graph").addEventListener("focusin", (event) => {
+  if (event.target.matches("input")) return;
+  const e = event.target.closest("[data-node],[data-edge]");
+  if (e) {
+    const r = e.getBoundingClientRect(),
+      item = e.dataset.node
+        ? nodes.get(e.dataset.node)
+        : edges.get(e.dataset.edge);
+    showTip(item.info, r.x, r.y);
+  }
+});
+$("#graph").addEventListener("focusout", () => ($("#tooltip").hidden = true));
+$("#inference").onclick = () => {
+  $("#editor").hidden = true;
+  $("#tooltip").hidden = true;
+  play("inference");
+};
+$("#training").onclick = () => {
+  $("#editor").hidden = true;
+  $("#tooltip").hidden = true;
+  play("training");
+};
+$("#reset").onclick = () => {
+  stop();
+  model = createModel();
+  inputs = defaultInputs();
+  target = 2;
+  rate = 0.2;
+  lastUpdate = null;
+  updates = 0;
+  $("#editor").hidden = true;
+  $("#tooltip").hidden = true;
+  $("#status").textContent =
+    "Reset · edit nodes, inspect paths, choose a target";
+  update();
+};
+$("#close-editor").onclick = () => {
+  $("#editor").hidden = true;
+};
+$("#about").onclick = () => $("#info").showModal();
+$("#close-info").onclick = () => $("#info").close();
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    $("#editor").hidden = true;
+    $("#tooltip").hidden = true;
+  }
+});
+window.kev = Object.freeze({
+  snapshot: () =>
+    structuredClone({
+      model,
+      inputs,
+      trace,
+      target,
+      rate,
+      updates,
+      lastUpdate,
+      mode,
+      phase,
+    }),
+});
+update();
