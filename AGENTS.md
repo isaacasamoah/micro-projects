@@ -1,8 +1,9 @@
 # Working on micro-projects
 
 - Keep each project self-contained under `projects/`; read its README first.
-- Inspect dirty state and preserve work by others. Use an owned branch and
-  separate worktree when an experiment changes an existing project.
+- Inspect dirty state and preserve work by others. Use working branches in
+  this repository’s canonical checkout. Keep every micro-project under
+  `projects/<name>/`; do not create a sibling checkout or worktree per project.
 - Keep slices small enough to explain and verify. No shared framework until
   an actual experiment needs it.
 - Put setup and run instructions beside runnable code. State when code is only
