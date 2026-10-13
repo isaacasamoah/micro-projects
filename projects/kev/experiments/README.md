@@ -1,7 +1,10 @@
 # Kev experiments
 
-Add one self-contained folder per small experiment as it is started. Each gets
-a README describing the question, setup, commands, observations and next step.
-Keep dependencies local until there is a concrete reason to share them.
+Each experiment is self-contained, with code, run instructions and a walkthrough.
 
-First candidate: `001-forward-pass`. It has not been implemented yet.
+| Experiment | Question | Status |
+| --- | --- | --- |
+| [001 — Visual network](001-visual-network/) | How do attention and a finite decision head compose? | Interactive JavaScript prototype; output-layer learning only |
+
+Refine the visual and concepts first, then build the agreed operations in Rust
+in small pushed increments. No shared framework until experiments need one.

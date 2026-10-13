@@ -8,7 +8,7 @@ from each other.
 
 | Project | Question | Status |
 | --- | --- | --- |
-| [Kev](projects/kev/) | How do we build, train and understand a small calibrated decision model? | Planning; no model implemented yet |
+| [Kev](projects/kev/) | How do we build, train and understand a small calibrated decision model? | Interactive network visual; Rust model planned |
 
 Each project is self-contained: its code, dependencies, run instructions and
 learning notes live in its folder. There is no repository-wide build system.

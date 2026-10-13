@@ -2,7 +2,8 @@
 
 An open-source learning project exploring system one decision models in Rust.
 The aim is to understand transformers by implementing small examples, then
-training, adapting and serving models locally. Kev is planned, not implemented.
+training, adapting and serving models locally. The first interactive visual
+prototype is implemented in JavaScript; the Rust model is not implemented yet.
 
 ## What we want to learn
 
@@ -44,26 +45,30 @@ also needs a defined environment, actions, rewards and evaluation; traces alone
 do not establish that training setup. First learn what a simple supervised
 baseline can do, then compare other objectives and training methods.
 
-## First session
+## How we work through Kev
 
-**Question:** Can we trace one small decision from inputs to scores in Rust?
+One small, understandable change at a time:
 
-1. Choose a tiny synthetic classification task and define its expected outputs.
-2. Implement a small forward pass with explicit intermediate values. This first
-   slice can be a basic neural network; do not call it a transformer yet.
-3. Show one worked prediction and compare it with a hand calculation.
-4. Spend the final 15–20 minutes explaining what was learned and the next question.
+1. Name the question and show the proposed computation or behavior.
+2. Implement that slice in its own branch/worktree and check it.
+3. Commit and push it so the code is readable on GitHub.
+4. Walk through before/after, pseudocode beside actual code, how it works,
+   why this approach, what was proved and what remains uncertain.
+5. Discuss and refine it before adding the next concept.
 
-A training loop, transformer attention, calibrated confidence, local serving and
-hardware visualisation are subsequent slices, not requirements for day one.
+Understanding each operation is the purpose. Keep walkthroughs beside each
+experiment; do not treat a working demo as proof that the learner understands it.
 
 ## Running
 
-There is no runnable code yet. Add exact setup and run commands with the first
-implementation, including toolchain and hardware requirements.
+Start with [001 — Visual network](experiments/001-visual-network/README.md):
+a small attention-based classifier with editable inputs, two heads, typed choices
+and a real training step on the final layer. Run instructions are in that folder.
 
 ## Progress
 
 - Initial direction captured on 13 October 2026.
-- Next: choose the tiny task and implement one observable forward pass.
-- No model trained, benchmark run or integration with voyagershell claimed.
+- Interactive visual prototype added on 14 October 2026, before the Rust model.
+- Actual numerical calculations, with animation timing labelled illustrative.
+- No pretrained model, whole-network training, benchmark, calibration or
+  integration with voyagershell claimed.
