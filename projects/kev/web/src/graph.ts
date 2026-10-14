@@ -1,6 +1,7 @@
 import { at, row } from "./model.js";
 import type { Parameters, Trace } from "./model.js";
 
+export const stageDurationMs = 1800;
 export const tokens = [0, 1, 2] as const;
 export type Token = (typeof tokens)[number];
 export type Stage = "projection" | "comparison" | "normalization" | "blend";
@@ -34,7 +35,7 @@ function edge(
   return `<g id="${id}-edge" class="edge ${active ? "active" : ""}" tabindex="0" role="button" data-inspect="edge" aria-label="${label}">
     <title>${label}</title><path id="${id}" class="wire" d="${path}" stroke="${color}" stroke-width="${width}"/>
     <path class="hit" d="${path}"/>
-    ${animate ? `<circle r="3" fill="${color}" class="particle"><animateMotion dur="1.4s" repeatCount="indefinite" path="${path}"/></circle>` : ""}
+    ${animate ? `<circle r="3" fill="${color}" class="particle"><animateMotion begin="indefinite" dur="${stageDurationMs}ms" repeatCount="1" fill="freeze" path="${path}"/></circle>` : ""}
   </g>`;
 }
 

@@ -1,6 +1,12 @@
 import { initialize, initialParameters, infer, at, row } from "./model.js";
 import type { MatrixName, Parameters, Trace } from "./model.js";
-import { format, inputMarkup, renderGraph, tokens } from "./graph.js";
+import {
+  format,
+  inputMarkup,
+  renderGraph,
+  tokens,
+  stageDurationMs,
+} from "./graph.js";
 import type { Stage, Token } from "./graph.js";
 
 function element(id: string): HTMLElement {
@@ -57,6 +63,9 @@ function render(): void {
   if (!edges || !nodes) throw new Error("Missing graph layers");
   edges.innerHTML = drawing.edges;
   nodes.innerHTML = drawing.nodes;
+  edges.querySelectorAll("animateMotion").forEach((animation) => {
+    if (animation instanceof SVGAnimationElement) animation.beginElement();
+  });
   const focused = focusedId ? document.getElementById(focusedId) : null;
   if (focused instanceof SVGElement) focused.focus();
   for (const token of tokens)
@@ -260,7 +269,7 @@ playButton.addEventListener("click", () => {
       playback = {
         kind: "playing",
         stage,
-        timer: window.setTimeout(() => advance(index + 1), 1800),
+        timer: window.setTimeout(() => advance(index + 1), stageDurationMs),
       };
       playButton.textContent = "Stop";
       status.textContent = stageText[stage];
