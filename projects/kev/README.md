@@ -6,6 +6,28 @@ training, adapting and serving models locally. The current implementation is one
 It runs natively or in the browser through WebAssembly, with a TypeScript
 interactive diagram. The full model is still to come.
 
+## Try the demo
+
+Clone the repository and open Kev’s browser project:
+
+```sh
+git clone https://github.com/isaacasamoah/micro-projects.git
+cd micro-projects/projects/kev/web
+```
+
+Follow the [browser setup](web/README.md#setup) to install the Rust WebAssembly
+target and binding generator, then run `npm ci`, `npm run build` and
+`npm run serve`. Open http://127.0.0.1:8795/ to explore the same graph shown in
+the demo. All inference runs locally in your browser.
+
+Start with **Play inference**, change an input slider, then click an output to
+inspect the weighted sum. The animation illustrates the computation; it does
+not measure runtime. The current weights are hand-set and no training occurs.
+
+The code is [MIT licensed](../../LICENSE): clone it, modify it and have a play.
+Questions, experiments and fixes are welcome through
+[issues](https://github.com/isaacasamoah/micro-projects/issues) or pull requests.
+
 ## What we want to learn
 
 - Build a tiny transformer from scratch in Rust and follow its computations.

@@ -35,7 +35,7 @@ Rust's array types connect the dimensions: `[f64; INPUT]` can be multiplied by `
 Run from the Kev directory:
 
 ```sh
-cargo run --offline --example attention
+cargo run --locked --example attention
 ```
 
 The inputs are `[1, 0]`, `[0, 1]` and `[1, 1]`. These are synthetic numerical tokens, not tokenized words. Query and key matrices are identity matrices. The value matrix maps them to `[1, 0, 1]`, `[0, 1, -1]` and `[1, 1, 0]`.
@@ -54,7 +54,7 @@ The output is a blend of value vectors. It is not a probability distribution ove
 Now run the deliberately different case:
 
 ```sh
-cargo run --offline --example attention -- --uniform
+cargo run --locked --example attention -- --uniform
 ```
 
 This zeros the query matrix. Every score becomes zero, each attention weight becomes one third, and every output is the mean value vector: `[0.666667, 0.666667, 0]`. Nothing was trained; we deliberately changed a parameter to expose its effect.
@@ -75,8 +75,8 @@ Run from the Kev directory:
 
 ```sh
 cargo fmt --check
-cargo test --offline
-cargo clippy --offline --all-targets -- -D warnings
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
 ```
 
 On Rust 1.99.0, seven numerical/boundary tests and one compile-fail documentation test passed. Clippy reported no warnings. Both terminal examples ran successfully.

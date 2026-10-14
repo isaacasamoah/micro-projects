@@ -42,6 +42,7 @@ machine. This does not establish a deployment approach for future GPU models.
 - Hover connections for their meaning, or activate them for details.
 - Click an output to inspect its weighted sum.
 - Play inference to replay projection, comparison, softmax and value blending.
+  Each stage plays once, with motion and stage timing kept together.
   The calculation already happened; animation duration is illustrative.
 - Stop, reset or editing cancels playback. Reset restores Rust's example values.
 - Keyboard users can Tab to controls and use Enter or Space on graph nodes.
