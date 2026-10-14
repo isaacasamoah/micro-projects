@@ -1,0 +1,342 @@
+{
+  "schema": "kev.graph-decisions.v0",
+  "status": "authored-draft",
+  "source": "Original synthetic examples authored for this learning experiment; no real user traces.",
+  "split": "unassigned",
+  "knowledge_types": {
+    "domain": "Facts, contracts and constraints about the subject or system, including evidence for them.",
+    "operational": "Procedures, instructions and task-execution knowledge.",
+    "preference": "A person or group explicitly states how they want something done."
+  },
+  "relations": {
+    "supports": "The incoming statement provides evidence for the candidate.",
+    "refines": "The incoming statement adds detail or a scoped condition while retaining the candidate.",
+    "supersedes": "The incoming statement explicitly replaces the candidate in the same scope with authority evidenced in the context.",
+    "contradicts": "The two statements cannot both hold in the same scope; no replacement is established.",
+    "depends_on": "The incoming action or procedure requires the candidate as a prerequisite."
+  },
+  "cases": [
+    {
+      "id": "contract-support",
+      "family": "API-1",
+      "title": "Evidence supports a contract",
+      "anchor": {
+        "kind": "ticket",
+        "id": "API-1"
+      },
+      "incoming": "The integration test confirms that create-order returns status 201 when a new order is created.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "The create-order API returns 201 for a successful creation."
+        },
+        {
+          "id": "n2",
+          "text": "The dashboard uses a dark theme."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "domain",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "supports"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The test is evidence for the existing API contract. It says nothing about the dashboard theme."
+      }
+    },
+    {
+      "id": "contract-refine",
+      "family": "API-1",
+      "title": "A narrower condition",
+      "anchor": {
+        "kind": "ticket",
+        "id": "API-1"
+      },
+      "incoming": "For duplicate order IDs, create-order returns status 409 rather than creating another order.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "The create-order API returns 201 for a successful creation."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "domain",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "refines"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The duplicate case adds a condition; it does not replace the successful-creation contract."
+      }
+    },
+    {
+      "id": "contract-conflict",
+      "family": "API-1",
+      "title": "A conflict is not a replacement",
+      "anchor": {
+        "kind": "ticket",
+        "id": "API-1"
+      },
+      "incoming": "The current API specification says a newly created order must return status 200.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "The current API specification says a newly created order must return status 201."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "domain",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "contradicts"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The same scoped contract has incompatible values, with no evidence that either specification supersedes the other."
+      }
+    },
+    {
+      "id": "deploy-replace",
+      "family": "DEPLOY-2",
+      "title": "An explicit replacement",
+      "anchor": {
+        "kind": "ticket",
+        "id": "DEPLOY-2"
+      },
+      "incoming": "The release owner approved replacing the staging deployment procedure: from now on use the deploy CLI instead of the manual dashboard.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "The staging deployment procedure is to use the manual dashboard."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "operational",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "supersedes"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The event explicitly establishes an authorized replacement for the same environment and procedure."
+      }
+    },
+    {
+      "id": "deploy-dependency",
+      "family": "DEPLOY-2",
+      "title": "A prerequisite",
+      "anchor": {
+        "kind": "ticket",
+        "id": "DEPLOY-2"
+      },
+      "incoming": "Before deploying the staging service, run migration 42 successfully.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Migration 42 creates the table required by the new staging service."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "operational",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "depends_on"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The incoming deployment procedure requires the existing migration. The directed edge runs from dependent to prerequisite."
+      }
+    },
+    {
+      "id": "deploy-isolation",
+      "family": "DEPLOY-2",
+      "title": "Similar words, different scope",
+      "anchor": {
+        "kind": "ticket",
+        "id": "DEPLOY-2"
+      },
+      "incoming": "The local prototype is deployed by copying its binary into a temporary directory.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Production deployments must use the release pipeline."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "operational",
+        "links": [],
+        "unresolved": [],
+        "rationale": "Both mention deployment, but their scopes differ and no semantic relationship is established. Shared vocabulary is not enough."
+      }
+    },
+    {
+      "id": "preference-replace",
+      "family": "VOICE-3",
+      "title": "A person changes their preference",
+      "anchor": {
+        "kind": "ticket",
+        "id": "VOICE-3"
+      },
+      "incoming": "Isaac: I have changed my mind. From now on, use short written updates instead of spoken updates for me.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Isaac prefers spoken updates."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "preference",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "supersedes"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The same person explicitly replaces their own communication preference."
+      }
+    },
+    {
+      "id": "preference-scope",
+      "family": "VOICE-3",
+      "title": "Different people can disagree",
+      "anchor": {
+        "kind": "ticket",
+        "id": "VOICE-3"
+      },
+      "incoming": "Maya: I prefer spoken updates.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Isaac prefers short written updates."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "preference",
+        "links": [],
+        "unresolved": [],
+        "rationale": "The preferences belong to different people; neither contradicts or replaces the other."
+      }
+    },
+    {
+      "id": "preference-exception",
+      "family": "VOICE-3",
+      "title": "A scoped exception",
+      "anchor": {
+        "kind": "ticket",
+        "id": "VOICE-3"
+      },
+      "incoming": "Isaac: For incident handovers, include full details even though my usual updates should stay short.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Isaac prefers short written updates."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "preference",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "refines"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The general preference is retained, with an explicit exception for incident handovers."
+      }
+    },
+    {
+      "id": "unknown-scope",
+      "family": "STORE-4",
+      "title": "Ask before connecting",
+      "anchor": {
+        "kind": "ticket",
+        "id": "STORE-4"
+      },
+      "incoming": "Use SQLite for this.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "The production application uses PostgreSQL."
+        },
+        {
+          "id": "n2",
+          "text": "The disposable prototype uses an in-memory store."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "operational",
+        "links": [],
+        "unresolved": [
+          "n1",
+          "n2"
+        ],
+        "rationale": "The instruction is procedural, but \"this\" does not identify its scope or intended replacement. Do not guess the target."
+      }
+    },
+    {
+      "id": "multiple-evidence",
+      "family": "STORE-4",
+      "title": "One event supports two facts",
+      "anchor": {
+        "kind": "ticket",
+        "id": "STORE-4"
+      },
+      "incoming": "A restart test recovered all acknowledged writes, and recovery completed in 1.2 seconds.",
+      "candidates": [
+        {
+          "id": "n1",
+          "text": "Acknowledged writes survive a restart."
+        },
+        {
+          "id": "n2",
+          "text": "Recovery completes in under two seconds."
+        },
+        {
+          "id": "n3",
+          "text": "The deployment requires an approved release ticket."
+        }
+      ],
+      "expected": {
+        "knowledge_type": "domain",
+        "links": [
+          {
+            "target": "n1",
+            "relation": "supports"
+          },
+          {
+            "target": "n2",
+            "relation": "supports"
+          }
+        ],
+        "unresolved": [],
+        "rationale": "The test provides independent evidence for two claims. It does not establish release approval."
+      }
+    },
+    {
+      "id": "new-fact",
+      "family": "FORMAT-5",
+      "title": "A new fact can stand alone",
+      "anchor": {
+        "kind": "ticket",
+        "id": "FORMAT-5"
+      },
+      "incoming": "The export format uses UTF-8 encoding.",
+      "candidates": [],
+      "expected": {
+        "knowledge_type": "domain",
+        "links": [],
+        "unresolved": [],
+        "rationale": "This is a reusable fact with no supplied candidate nodes. An empty candidate set must not force a connection."
+      }
+    }
+  ]
+}

@@ -35,6 +35,7 @@ run(join(rustBin, "wasm-bindgen"), [
 run(process.execPath, [join(web, "node_modules/typescript/bin/tsc")]);
 await mkdir(join(web, "dist"), { recursive: true });
 await cp(join(web, "public"), join(web, "dist"), { recursive: true });
+await cp(join(kev, "data"), join(web, "dist/data"), { recursive: true });
 await cp(join(web, "generated"), join(web, "dist/generated"), {
   recursive: true,
 });

@@ -6,34 +6,179 @@
     <title>Kev · inside self-attention</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="data.css" />
   </head>
   <body>
-    <header>
-      <div><strong>kev</strong><span>inside one self-attention head</span></div>
-      <nav aria-label="Playback">
-        <button id="play" disabled>Play inference</button>
-        <button id="reset" disabled>Reset</button>
-        <a href="walkthrough.html" target="_blank" rel="noopener"
-          >Code walkthrough ↗</a
+    <div id="workspace" aria-label="Kev learning workspace">
+      <div id="workspace-plane">
+        <section
+          id="view-model"
+          class="workspace-view"
+          aria-label="Model internals"
+          tabindex="-1"
         >
-      </nav>
-    </header>
-    <main>
-      <svg
-        id="graph"
-        viewBox="0 0 1440 820"
-        role="group"
-        aria-label="Interactive Rust self-attention computation"
-      ></svg>
-    </main>
-    <footer>
-      <span id="status" role="status">Loading Rust WebAssembly…</span
-      ><span>Rust values · illustrative playback timing</span>
-    </footer>
-    <dialog id="inspector" aria-labelledby="inspector-title">
-      <button id="close" aria-label="Close details">×</button>
-      <div id="details"></div>
-    </dialog>
+          <header>
+            <div>
+              <strong>kev</strong><span>inside one self-attention head</span>
+            </div>
+            <nav aria-label="Playback">
+              <button id="play" disabled>Play inference</button>
+              <button id="reset" disabled>Reset</button>
+              <a href="walkthrough.html" target="_blank" rel="noopener"
+                >Code walkthrough ↗</a
+              >
+            </nav>
+          </header>
+          <main>
+            <svg
+              id="graph"
+              viewBox="0 0 1440 820"
+              role="group"
+              aria-label="Interactive Rust self-attention computation"
+            ></svg>
+          </main>
+          <footer>
+            <span id="status" role="status">Loading Rust WebAssembly…</span
+            ><span>Rust values · illustrative playback timing</span>
+          </footer>
+          <dialog id="inspector" aria-labelledby="inspector-title">
+            <button id="close" aria-label="Close details">×</button>
+            <div id="details"></div>
+          </dialog>
+        </section>
+        <section
+          id="view-data"
+          class="workspace-view learning-view"
+          aria-labelledby="data-title"
+          tabindex="-1"
+          inert
+          aria-hidden="true"
+        >
+          <div class="view-content">
+            <p class="eyebrow">Kev / Data</p>
+            <h1 id="data-title">What should Kev learn?</h1>
+            <p class="view-intro">
+              Create situations, inspect the evidence, and define the decisions
+              we want to teach.
+            </p>
+            <div id="data-content"></div>
+          </div>
+        </section>
+        <section
+          id="view-evaluation"
+          class="workspace-view learning-view"
+          aria-labelledby="evaluation-title"
+          tabindex="-1"
+          inert
+          aria-hidden="true"
+        >
+          <div class="view-content">
+            <p class="eyebrow">Kev / Evaluation</p>
+            <h1 id="evaluation-title">What would a good decision look like?</h1>
+            <p class="view-intro">
+              Our first question: can a model connect new knowledge to the right
+              evidence?
+            </p>
+            <div class="question-path">
+              <article>
+                <span class="step-label">01 / Expected</span>
+                <h2>Define the change</h2>
+                <p>
+                  Which existing node belongs with this event? Should the event
+                  support, refine or supersede it — or leave it alone?
+                </p>
+              </article>
+              <article>
+                <span class="step-label">02 / Observed</span>
+                <h2>Inspect the difference</h2>
+                <p>
+                  Look for missing links, unsupported connections and facts that
+                  should not have been replaced.
+                </p>
+              </article>
+              <article>
+                <span class="step-label">03 / Next experiment</span>
+                <h2>Ask what would help</h2>
+                <p>
+                  Form a hypothesis, create separate training examples, then
+                  check improvement and regressions on held-out cases.
+                </p>
+              </article>
+            </div>
+            <p class="scope-note">
+              Experiment design only. Kev currently runs one attention head; no
+              graph decisions, training or evaluation results yet.
+            </p>
+          </div>
+        </section>
+        <section
+          id="view-capabilities"
+          class="workspace-view learning-view"
+          aria-labelledby="capabilities-title"
+          tabindex="-1"
+          inert
+          aria-hidden="true"
+        >
+          <div class="view-content">
+            <p class="eyebrow">Kev / Capabilities</p>
+            <h1 id="capabilities-title">What could we build from decisions?</h1>
+            <p class="view-intro">
+              Explore how small typed questions could compose into useful
+              workflows.
+            </p>
+            <div class="question-path">
+              <article>
+                <span class="step-label">Context</span>
+                <h2>Find the evidence</h2>
+                <p>
+                  A harness gathers an event and relevant candidate nodes, with
+                  their sources and scope.
+                </p>
+              </article>
+              <article>
+                <span class="step-label">Judgment</span>
+                <h2>Ask a typed question</h2>
+                <p>
+                  Choose a knowledge category, assess a candidate relationship,
+                  or ask for more information.
+                </p>
+              </article>
+              <article>
+                <span class="step-label">Action</span>
+                <h2>Compose the answers</h2>
+                <p>
+                  Code validates proposed graph changes and routes relevant
+                  evidence to collaborating agents.
+                </p>
+              </article>
+            </div>
+            <p class="scope-note">
+              These are proposed applications. A harness would compose the
+              questions; the model still needs to learn and demonstrate the
+              judgments.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+    <nav id="workspace-navigation" aria-label="Explore the workspace">
+      <button class="edge-navigation edge-left" data-direction="left">
+        <span aria-hidden="true">←</span><span class="edge-label">Data</span>
+      </button>
+      <button class="edge-navigation edge-right" data-direction="right">
+        <span class="edge-label">Evaluation</span
+        ><span aria-hidden="true">→</span>
+      </button>
+      <button class="edge-navigation edge-up" data-direction="up">
+        <span aria-hidden="true">↑</span
+        ><span class="edge-label">Capabilities</span>
+      </button>
+      <button class="edge-navigation edge-down" data-direction="down" hidden>
+        <span class="edge-label">Model</span><span aria-hidden="true">↓</span>
+      </button>
+    </nav>
+    <script type="module" src="app/workspace.js"></script>
+    <script type="module" src="app/data.js"></script>
     <script type="module" src="app/app.js"></script>
   </body>
 </html>

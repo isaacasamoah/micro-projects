@@ -33,6 +33,19 @@ No bundler, frontend framework, HTTP model API or remote inference is required.
 The static files could later be hosted, with computation still on the reader's
 machine. This does not establish a deployment approach for future GPU models.
 
+## Workspace
+
+Model is the centre. Move near the left, right or top edge and click the revealed
+arrow to slide into Data, Evaluation or Capabilities. The reverse arrow returns
+to Model. Tab reveals navigation controls; touch layouts show them continuously.
+Reduced motion disables sliding. Leaving Model stops playback and closes details
+without changing its parameters.
+
+Data browses the canonical `../data/graph-decisions.seed.json` copied during
+build. Labels are authored proposals, with no train/test assignment yet. The
+other panels are experiment outlines, not fabricated results or working harnesses.
+Model values remain the actual Rust trace, independent of the selected data case.
+
 ## Explore
 
 - Drag input sliders: all Q/K/V vectors and attention rows are recomputed in Rust.

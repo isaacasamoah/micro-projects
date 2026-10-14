@@ -28,6 +28,17 @@ The code is [MIT licensed](../../LICENSE): clone it, modify it and have a play.
 Questions, experiments and fixes are welcome through
 [issues](https://github.com/isaacasamoah/micro-projects/issues) or pull requests.
 
+## Exploring data and evaluation
+
+Move toward the screen edges to reveal navigation: left opens Data, right opens
+Evaluation, and up opens Capabilities. Click the opposite arrow to return to the
+model. Controls are keyboard accessible and remain visible on touch screens.
+
+The Data view lets you inspect [12 draft graph-decision examples](data/README.md),
+with candidate nodes, proposed relationships and label rationales. Evaluation
+and Capabilities currently describe the experiments we want to build; they do
+not display model results. These text examples are not yet inputs to Kev.
+
 ## What we want to learn
 
 - Build a tiny transformer from scratch in Rust and follow its computations.
@@ -98,7 +109,8 @@ experiment; do not treat a working demo as proof that the learner understands it
 
 The model is a Rust library, not an HTTP service. The terminal example and the
 browser call the same forward function. This slice has no text encoder, complete
-transformer, typed output head, dataset or training loop.
+transformer, typed output head or training loop. The draft graph dataset is
+separate from this numerical example.
 
 With Rust 1.85 or newer (tested with 1.99.0), from this directory:
 
@@ -126,7 +138,8 @@ The browser remains local: no account, API key or hosted model is needed.
 | [web/src/app.ts](web/src/app.ts) | Interaction and illustrative playback |
 
 Start with the [Rust attention walkthrough](walkthroughs/001-rust-attention.md),
-then [Rust in the browser and official patterns](walkthroughs/002-rust-browser.md).
+then [Rust in the browser and official patterns](walkthroughs/002-rust-browser.md),
+and [the data workspace](walkthroughs/003-data-workspace.md).
 The web app's **Code walkthrough** opens pseudocode beside the actual Rust source,
 embedded at build time.
 
@@ -139,6 +152,7 @@ preserves that experiment; there is now one attention implementation.
 - First interactive prototype and Rust attention slice added on 14 October 2026.
 - Browser now displays the Rust self-attention trace, including all query rows.
 - Inputs and matrices can be edited; inference does not learn from those edits.
-- Training, typed decisions and dataset creation remain subsequent slices.
+- A draft graph-decision dataset can be explored in the Data view.
+- Training and typed decisions remain subsequent slices.
 - No pretrained model, benchmark, calibration, GPU performance or integration
   with voyagershell claimed.
